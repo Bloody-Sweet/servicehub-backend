@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import with_polymorphic
 from app.models import db, User, Customer, Provider, Admin
-
+import re
 auth_bp = Blueprint('auth', __name__, url_prefix='/api')
 
 
@@ -38,9 +38,15 @@ def register():
                 role=role,
                 address=data.get('address'),
                 phone_number=data.get('phone_number'),
-                location=data.get('location'),
+                city=data.get('city'),
+                state=data.get('state'),
+                zip_code=data.get('zip_code'),
                 is_active=data.get('is_active', True)
             )
+            phone_number = data.get('phone_number')
+            if not re.fullmatch(r'\d{3}-\d{3}-\d{4}', str(phone_number)):
+                return jsonify({"error": "Phone number must be in the format 212-555-1234"}), 400
+            
             db.session.add(customer)
             db.session.commit()
             return jsonify({"message": "Customer registered successfully", "user": customer.to_dict()}), 201
@@ -53,12 +59,18 @@ def register():
                 password_hash=password_hash,
                 role=role,
                 address=data.get('address'),
-                location=data.get('location'),
+                city=data.get('city'),
+                state=data.get('state'),
+                zip_code=data.get('zip_code'),
                 phone_number=data.get('phone_number'),
                 company_name=data.get('company_name') or "Default Company",
                 description=data.get('description'),
                 ratings=data.get('ratings', 0.0)
             )
+            phone_number = data.get('phone_number')
+            if not re.fullmatch(r'\d{3}-\d{3}-\d{4}', str(phone_number)):
+                return jsonify({"error": "Phone number must be in the format 212-555-1234"}), 400
+        
             db.session.add(provider)
             db.session.commit()
             return jsonify({"message": "Provider registered successfully", "user": provider.to_dict()}), 201
@@ -94,6 +106,25 @@ def login():
     user = db.session.query(user_poly).filter(User.email == email).first()
 
     if user and check_password_hash(user.password_hash, password):
-        return jsonify({"message": "Login successful", "user": user.to_dict()})
+        if user.role == 'customer':
+            return jsonify({
+                "message": "Customer login successful",
+                "role": "customer",
+                "user": user.to_dict()
+            })
+        elif user.role == 'provider':
+            return jsonify({
+                "message": "Provider login successful",
+                "role": "provider",
+                "user": user.to_dict()
+            })
+        elif user.role == 'admin':
+            return jsonify({
+                "message": "Admin login successful",
+                "role": "admin",
+                "user": user.to_dict()
+            })
+        else:
+            return jsonify({"error": "Unknown user role"}), 400
     return jsonify({"error": "Invalid credentials"}), 401
 

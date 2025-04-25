@@ -36,8 +36,10 @@ class Customer(User):
 
     id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
     address = db.Column(db.String(255))
-    phone_number = db.Column(db.Integer)
-    location = db.Column(db.String(255)) 
+    phone_number = db.Column(db.String(20))
+    city = db.Column(db.String(255)) 
+    state = db.Column(db.String(100))
+    zip_code = db.Column(db.String(20))
     is_active = db.Column(db.Boolean, default=True)
 
     __mapper_args__ = {
@@ -49,7 +51,9 @@ class Customer(User):
         base.update({
             "address": self.address,
             "phone_number": self.phone_number,
-            "location": self.location,
+            "city": self.city,
+            "state": self.state,
+            "zip_code": self.zip_code,
             "is_active": self.is_active
         })
         return base
@@ -59,8 +63,10 @@ class Provider(User):
 
     id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
     address = db.Column(db.String(255))
-    location = db.Column(db.String(255))
-    phone_number = db.Column(db.Integer)
+    city = db.Column(db.String(255))
+    phone_number = db.Column(db.String(20))
+    state = db.Column(db.String(100))
+    zip_code = db.Column(db.String(20))
     ratings = db.Column(db.Float, default=0.0)
     company_name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.Text)
@@ -68,6 +74,20 @@ class Provider(User):
     __mapper_args__ = {
         'polymorphic_identity': 'provider'
     }
+
+    def to_dict(self):
+        base = super().to_dict()
+        base.update({
+            "address": self.address,
+            "city": self.city,
+            "state": self.state,
+            "zip_code": self.zip_code,
+            "phone_number": self.phone_number,
+            "ratings": self.ratings,
+            "company_name": self.company_name,
+            "description": self.description
+        })
+        return base
 
 class Admin(User):
     __tablename__ = 'admin'
