@@ -11,11 +11,20 @@ from app.routes.providers import providers_bp
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
-    CORS(app)
+
+    # CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}}, supports_credentials=True)
     
+    CORS(app)
     db.init_app(app)
     
-    # Register Blueprints for modular route handling
+    # @app.after_request
+    # def after_request(response):
+    #     response.headers.add('Access-Control-Allow-Origin', '*')
+    #     response.headers.add('Access-Control-Allow-Credentials', 'true')
+    #     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    #     response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS,PUT,DELETE')
+    #     return response
+    
     app.register_blueprint(auth_bp, url_prefix='/servicehub')
     app.register_blueprint(services_bp, url_prefix='/servicehub')
     app.register_blueprint(bookings_bp, url_prefix='/servicehub')
@@ -23,4 +32,3 @@ def create_app():
     app.register_blueprint(providers_bp, url_prefix='/servicehub')
     
     return app
-
