@@ -11,26 +11,22 @@ def register():
     data = request.json
     
     print("data",data)
-
-    # Support both first_name / firstname key formats
+    
     first_name = data.get('first_name') or data.get('firstname')
     last_name = data.get('last_name') or data.get('lastname')
     email = data.get('email')
     password = data.get('password')
-    role = data.get('role', 'customer')  # Default role is 'customer'
+    role = data.get('role', 'customer') 
 
-    # Check if email already exists
     if User.query.filter_by(email=email).first():
         return jsonify({"error": "User already exists"}), 400
 
-    # Validate required fields
     if not all([first_name, last_name, email, password]):
         return jsonify({"error": "Missing required fields"}), 400
 
     password_hash = generate_password_hash(password)
 
     try:
-        # Role-based user creation
         if role == 'customer':
             customer = Customer(
                 first_name=first_name,
@@ -103,7 +99,6 @@ def login():
     email = data.get('email')
     password = data.get('password')
 
-    # Use with_polymorphic to ensure proper subclass loading
     user_poly = with_polymorphic(User, '*')
     user = db.session.query(user_poly).filter(User.email == email).first()
     
@@ -112,7 +107,6 @@ def login():
             "message": "User not found"
         })
 
-    
     if not check_password_hash(user.password_hash, password):
         return jsonify({
             "message": "Invalid credentials"
@@ -141,3 +135,30 @@ def login():
             return jsonify({"error": "Unknown user role"}), 400
     return jsonify({"error": "Invalid credentials"}), 401
 
+@auth_bp.route("/updateProfile/<int:user_id>", methods=["PUT"])
+def update_profile(user_id):
+    data = request.get_json() or {}
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    customer = Customer.query.filter_by(user_id=user_id).first()
+    if not customer:
+        return jsonify({"error": "Customer profile not found"}), 404
+
+    for attr in ("first_name", "last_name", "email"):
+        if attr in data:
+            setattr(user, attr, data[attr])
+
+    for attr in ("address", "phone_number", "city", "state", "zip_code", "is_active"):
+        if attr in data:
+            setattr(customer, attr, data[attr])
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Could not update profile", "details": str(e)}), 500
+
+    return jsonify(customer.to_dict()), 200

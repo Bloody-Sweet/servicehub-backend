@@ -32,19 +32,16 @@ def provider_registration():
 def add_service(providerId):
     data = request.json
 
-    # Find the provider
     provider = Provider.query.filter_by(provider_id=providerId).first()
     if not provider:
         return jsonify({"error": "Provider not found"}), 404
 
-    # Validate required fields
     service_name = data.get('service_name')
     price = data.get('price')
 
     if not service_name or price is None:
         return jsonify({"error": "Missing required fields: service_name and price"}), 400
 
-    # Create a new service
     new_service = Service(
         service_name=service_name,
         description=data.get('description'),

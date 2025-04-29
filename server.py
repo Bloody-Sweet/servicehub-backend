@@ -5,7 +5,6 @@ import click
 
 app = create_app()
 
-# Provide a shell context for the flask shell
 @app.shell_context_processor
 def make_shell_context():
     return {
@@ -17,10 +16,8 @@ def make_shell_context():
         'Review': Review
     }
 
-# Add a custom CLI command to initialize the database (create all tables)
 @app.cli.command("init-db")
 def init_db():
-    """Initialize the database by creating all tables."""
     with app.app_context():
         db.create_all()
         click.echo("Initialized the database (all tables created)!")
