@@ -22,7 +22,6 @@ def create_booking():
     total_cost = data.get('total_cost')
     status = data.get('status', 'pending')  
 
-    # Basic validation
     if not all([customer_id, provider_id, service_id, address, city, state, zip_code, total_cost, service_name, booking_time, subservice_id]):
         return jsonify({"error": "Missing required fields"}), 400
 
@@ -138,7 +137,6 @@ def update_booking():
     if not booking:
         return jsonify({"error": "Booking not found."}), 404
 
-    # Include subservice_id here!
     allowed_fields = [
         "customer_id", "provider_id", "service_id", "service_name", "subservice_id",
         "address", "city", "state", "zip_code", "note", "total_cost",
@@ -160,16 +158,13 @@ def get_bookings_with_customer():
     results = []
 
     for booking in bookings:
-        # Fetch customer
         customer = Customer.query.filter_by(customer_id=booking.customer_id).first()
 
-        # Fetch user's first name linked to the customer
         customer_name = ""
         if customer:
             user = User.query.filter_by(id=customer.user_id).first()
             customer_name = user.first_name if user else "Unknown Customer"
 
-        # Prepare booking data
         booking_data = booking.to_dict()
         booking_data['customer_name'] = customer_name
 

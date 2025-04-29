@@ -27,10 +27,6 @@ class User(db.Model):
             "role": self.role
         }
 
-# -----------------------------
-# Subtype tables using JOINED inheritance
-# -----------------------------
-
 class Customer(User):
     __tablename__ = 'customer'
     
@@ -107,10 +103,6 @@ class Admin(User):
         'polymorphic_identity': 'admin'
     }
 
-# -----------------------------
-# Other tables
-# -----------------------------
-
 class Service(db.Model):
     __tablename__ = 'service'
     
@@ -132,8 +124,6 @@ class Service(db.Model):
             "description": self.description,
             "price": self.price
         }
-
-
 
 class Booking(db.Model):
     __tablename__ = 'booking'
@@ -179,8 +169,6 @@ class Booking(db.Model):
             "status": self.status
         }
 
-   
-
 class Review(db.Model):
     __tablename__ = 'review'
     
@@ -215,7 +203,6 @@ class Subservice(db.Model):
     price = db.Column(db.Float)
     status = db.Column(db.Boolean, default=True)
 
-    # Relationship back to Service
     service = db.relationship('Service', back_populates='subservices')
     bookings = db.relationship('Booking', backref='subservice', lazy=True)
 

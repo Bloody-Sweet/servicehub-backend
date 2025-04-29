@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from app.models import db, User, Provider, Service, Subservice
+from app.models import db, User, Provider, Service, Subservice, Customer
 
 services_bp = Blueprint('services', __name__, url_prefix='/api')
 
@@ -73,7 +73,6 @@ def update_service_and_subservices():
     subservices = data.get('subservices', [])
 
     if action == 'add':
-        # Create a new Service
         new_service = Service(
             service_name=service_name,
             description=description,
@@ -83,7 +82,6 @@ def update_service_and_subservices():
         db.session.add(new_service)
         db.session.commit()  
         
-        # Now add subservices
         for sub in subservices:
             new_sub = Subservice(
                 service_id=new_service.service_id,
@@ -98,17 +96,14 @@ def update_service_and_subservices():
         return jsonify({"message": "Service and Subservices added successfully!"}), 201
 
     elif action == 'update':
-        # Find existing service
         service = Service.query.get(service_id)
         if not service:
             return jsonify({"message": "Service not found."}), 404
 
-        # Update the service details
         service.service_name = service_name
         service.description = description
         service.price = price
 
-        # Update or add subservices
         for sub in subservices:
             subservice_id = sub.get('subservice_id')
             subservice_name = sub.get('subservice_name')
@@ -136,3 +131,32 @@ def update_service_and_subservices():
 
     else:
         return jsonify({"message": "Invalid action provided."}), 400
+    
+    
+@services_bp.route("/updateProfile/<int:user_id>", methods=["PUT"])
+def update_profile(user_id):
+    data = request.get_json() or {}
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    customer = Customer.query.filter_by(user_id=user_id).first()
+    if not customer:
+        return jsonify({"error": "Customer profile not found"}), 404
+
+    for attr in ("first_name", "last_name", "email"):
+        if attr in data:
+            setattr(user, attr, data[attr])
+
+    for attr in ("address", "phone_number", "city", "state", "zip_code", "is_active"):
+        if attr in data:
+            setattr(customer, attr, data[attr])
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Could not update profile", "details": str(e)}), 500
+
+    return jsonify(customer.to_dict()), 200
