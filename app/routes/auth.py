@@ -9,6 +9,8 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/api')
 @auth_bp.route('/register', methods=['POST'])
 def register():
     data = request.json
+    
+    print("data",data)
 
     # Support both first_name / firstname key formats
     first_name = data.get('first_name') or data.get('firstname')
@@ -104,6 +106,17 @@ def login():
     # Use with_polymorphic to ensure proper subclass loading
     user_poly = with_polymorphic(User, '*')
     user = db.session.query(user_poly).filter(User.email == email).first()
+    
+    if not user:
+        return jsonify({
+            "message": "User not found"
+        })
+
+    
+    if not check_password_hash(user.password_hash, password):
+        return jsonify({
+            "message": "Invalid credentials"
+        })
 
     if user and check_password_hash(user.password_hash, password):
         if user.role == 'customer':

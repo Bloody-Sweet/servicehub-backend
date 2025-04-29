@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
-from app.models import db, Booking
+from app.models import db, Booking, Subservice, Provider, User, Customer, Service
+from sqlalchemy import func
 
 bookings_bp = Blueprint('bookings', __name__, url_prefix='/api')
 
@@ -10,6 +11,7 @@ def create_booking():
     customer_id = data.get('customer_id')
     provider_id = data.get('provider_id')
     service_id = data.get('service_id')
+    subservice_id =  data.get('subservice_id')
     service_name = data.get('service_name')
     booking_time = data.get('booking_time')
     address = data.get('address')
@@ -21,7 +23,7 @@ def create_booking():
     status = data.get('status', 'pending')  
 
     # Basic validation
-    if not all([customer_id, provider_id, service_id, address, city, state, zip_code, total_cost, service_name, booking_time]):
+    if not all([customer_id, provider_id, service_id, address, city, state, zip_code, total_cost, service_name, booking_time, subservice_id]):
         return jsonify({"error": "Missing required fields"}), 400
 
     booking = Booking(
@@ -35,7 +37,8 @@ def create_booking():
         zip_code=zip_code,
         note=note,
         total_cost=total_cost,
-        status=status
+        status=status,
+        subservice_id=subservice_id
     )
     
     if booking_time:
@@ -70,14 +73,45 @@ def get_booking(booking_id):
 @bookings_bp.route('/bookings/customer/<int:customer_id>', methods=['GET'])
 def get_bookings_by_customer(customer_id):
     bookings = Booking.query.filter_by(customer_id=customer_id).all()
-    return jsonify([b.to_dict() for b in bookings]), 200
+    results = []
 
+    for booking in bookings:
+   
+        provider = Provider.query.filter_by(provider_id=booking.provider_id).first()
+        if provider:
+            user = User.query.filter_by(id=provider.user_id).first()
+            provider_name = user.first_name if user else "Unknown Provider"
+        else:
+            provider_name = "Unknown Provider"
+
+        booking_data = booking.to_dict() 
+        booking_data['provider_name'] = provider_name    
+        results.append(booking_data)
+
+    return jsonify(results), 200
 
 @bookings_bp.route('/bookings/provider/<int:provider_id>', methods=['GET'])
 def get_bookings_by_provider(provider_id):
     bookings = Booking.query.filter_by(provider_id=provider_id).all()
-    return jsonify([b.to_dict() for b in bookings]), 200
+    results = []
 
+    for booking in bookings:
+  
+        customer = Customer.query.filter_by(customer_id=booking.customer_id).first()
+        if customer:
+            user = User.query.filter_by(id=customer.user_id).first()
+            if user:
+                customer_name = f"{user.first_name} {user.last_name}"
+            else:
+                customer_name = "Unknown Customer"
+        else:
+            customer_name = "Unknown Customer"
+
+        booking_data = booking.to_dict()
+        booking_data['customer_name'] = customer_name
+        results.append(booking_data)
+
+    return jsonify(results), 200
 
 @bookings_bp.route('/bookings/service/<int:service_id>', methods=['GET'])
 def get_bookings_by_service(service_id):
@@ -88,3 +122,91 @@ def get_bookings_by_service(service_id):
 def get_all_bookings():
     bookings = Booking.query.all()
     return jsonify([b.to_dict() for b in bookings]), 200
+
+
+@bookings_bp.route('/updatebooking', methods=['PUT'])
+def update_booking():
+    data = request.get_json()
+    print("service name", data)
+
+    if not data or 'booking_id' not in data:
+        return jsonify({"error": "Booking ID is required."}), 400
+
+    booking_id = data['booking_id']
+    booking = Booking.query.get(booking_id)
+
+    if not booking:
+        return jsonify({"error": "Booking not found."}), 404
+
+    # Include subservice_id here!
+    allowed_fields = [
+        "customer_id", "provider_id", "service_id", "service_name", "subservice_id",
+        "address", "city", "state", "zip_code", "note", "total_cost",
+        "booking_time", "booking_date", "status"
+    ]
+
+    for field in allowed_fields:
+        if field in data:
+            setattr(booking, field, data[field])
+
+    db.session.commit()
+
+    return jsonify({"message": "Booking updated successfully.", "booking": booking.to_dict()}), 200
+
+
+@bookings_bp.route('/bookings/withCustomer', methods=['GET'])
+def get_bookings_with_customer():
+    bookings = Booking.query.all()
+    results = []
+
+    for booking in bookings:
+        # Fetch customer
+        customer = Customer.query.filter_by(customer_id=booking.customer_id).first()
+
+        # Fetch user's first name linked to the customer
+        customer_name = ""
+        if customer:
+            user = User.query.filter_by(id=customer.user_id).first()
+            customer_name = user.first_name if user else "Unknown Customer"
+
+        # Prepare booking data
+        booking_data = booking.to_dict()
+        booking_data['customer_name'] = customer_name
+
+        results.append(booking_data)
+
+    return jsonify(results), 200
+
+@bookings_bp.route('/performance', methods=['GET'])
+def get_service_performance():
+    try:
+        services = Service.query.all()
+
+        if not services:
+            return jsonify({"message": "No services found."}), 404
+
+        result = []
+
+        total_revenue = db.session.query(func.sum(Booking.total_cost)).scalar() or 0
+
+        if total_revenue == 0:
+            return jsonify({"message": "No bookings found."}), 404
+
+        for service in services:
+            service_revenue = (
+                db.session.query(func.sum(Booking.total_cost))
+                .filter(Booking.service_id == service.service_id)
+                .scalar()
+            ) or 0
+
+            performance_percentage = (service_revenue / total_revenue) * 100
+
+            result.append({
+                "service_name": service.service_name,
+                "performance": round(performance_percentage, 2)
+            })
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        return jsonify({"message": "Something went wrong.", "error": str(e)}), 500

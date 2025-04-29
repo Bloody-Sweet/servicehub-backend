@@ -10,7 +10,7 @@ class User(db.Model):
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.Enum('customer','provider','admin'), nullable=False)
 
     __mapper_args__ = {
@@ -37,7 +37,7 @@ class Customer(User):
     customer_id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     address = db.Column(db.String(255))
-    phone_number = db.Column(db.String(20))
+    phone_number = db.Column(db.String(80))
     city = db.Column(db.String(255)) 
     state = db.Column(db.String(100))
     zip_code = db.Column(db.String(20))
@@ -67,7 +67,7 @@ class Provider(User):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     address = db.Column(db.String(255))
     city = db.Column(db.String(255))
-    phone_number = db.Column(db.String(20))
+    phone_number = db.Column(db.String(80))
     state = db.Column(db.String(100))
     zip_code = db.Column(db.String(20))
     ratings = db.Column(db.Float, default=0.0)
@@ -119,8 +119,20 @@ class Service(db.Model):
     service_name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.Text)
     price = db.Column(db.Float)
+
     provider = db.relationship('Provider', back_populates='services')
     bookings = db.relationship('Booking', back_populates='service', lazy=True)
+    subservices = db.relationship('Subservice', back_populates='service', lazy=True)  # ✅ New line
+
+    def to_dict(self):
+        return {
+            "service_id": self.service_id,
+            "provider_id": self.provider_id,
+            "service_name": self.service_name,
+            "description": self.description,
+            "price": self.price
+        }
+
 
 
 class Booking(db.Model):
@@ -140,11 +152,13 @@ class Booking(db.Model):
     note = db.Column(db.String(500))
     total_cost = db.Column(db.Float, nullable=False)
     status = db.Column(db.String(50), default='pending')
+    subservice_id = db.Column(db.Integer, db.ForeignKey('subservice.subservice_id'), nullable=False)
 
     customer = db.relationship('Customer', backref='bookings')
     provider = db.relationship('Provider', back_populates='bookings')
     service = db.relationship('Service', back_populates='bookings')
     review = db.relationship('Review', back_populates='booking', uselist=False)
+    
     
     def to_dict(self):
         return {
@@ -152,6 +166,7 @@ class Booking(db.Model):
             "customer_id": self.customer_id,
             "provider_id": self.provider_id,
             "service_id": self.service_id,
+            "subservice_id": self.subservice_id,
             "service_name": self.service_name,
             "booking_date": self.booking_date.isoformat() if self.booking_date else None,
             "booking_time": self.booking_time.strftime('%H:%M:%S') if self.booking_time else None,  
@@ -190,4 +205,26 @@ class Review(db.Model):
             "comment": self.comment
         }
 
+
+class Subservice(db.Model):
+    __tablename__ = 'subservice'
+
+    subservice_id = db.Column(db.Integer, primary_key=True)
+    service_id = db.Column(db.Integer, db.ForeignKey('service.service_id'), nullable=False)
+    subservice_name = db.Column(db.String(120), nullable=False)
+    price = db.Column(db.Float)
+    status = db.Column(db.Boolean, default=True)
+
+    # Relationship back to Service
+    service = db.relationship('Service', back_populates='subservices')
+    bookings = db.relationship('Booking', backref='subservice', lazy=True)
+
+    def to_dict(self):
+        return {
+            "subservice_id": self.subservice_id,
+            "service_id": self.service_id,
+            "subservice_name": self.subservice_name,
+            "price": self.price,
+            "status": self.status
+        }
 
