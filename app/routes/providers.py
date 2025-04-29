@@ -49,7 +49,7 @@ def add_service(providerId):
         service_name=service_name,
         description=data.get('description'),
         price=price,
-        provider_id=provider.provider_id  # link to provider's user_id
+        provider_id=provider.provider_id  
     )
 
     try:
@@ -114,20 +114,30 @@ def get_providers_by_service(service_name):
 
 @providers_bp.route('/provider/<int:provider_id>', methods=['GET'])
 def get_provider_with_details(provider_id):
-    provider = Provider.query.get(provider_id)
+    provider = Provider.query.filter_by(provider_id=provider_id).first()
 
     if not provider:
         return jsonify({"error": "Provider not found"}), 404
 
-    services = [ 
-        {
+    services = []
+    for service in provider.services:
+        service_data = {
             "service_id": service.service_id,
             "service_name": service.service_name,
             "description": service.description,
-            "price": service.price
+            "price": service.price,
+            "subservices": [
+                {
+                    "service_id":service.service_id,
+                    "subservice_id": subservice.subservice_id,
+                    "subservice_name": subservice.subservice_name,
+                    "price": subservice.price,
+                    "status": subservice.status
+                }
+                for subservice in service.subservices
+            ]
         }
-        for service in provider.services
-    ]
+        services.append(service_data)
 
     reviews = [
         {
@@ -140,7 +150,7 @@ def get_provider_with_details(provider_id):
     ]
 
     response = {
-        "provider": provider.to_dict(),  # You already have to_dict() in Provider
+        "provider": provider.to_dict(),
         "services": services,
         "reviews": reviews
     }
